@@ -16,6 +16,14 @@ interface MiroUserResponse {
   email?: string
 }
 
+interface MiroTokenContextResponse {
+  user?: {
+    id?: string | number
+    name?: string
+    email?: string
+  }
+}
+
 interface MiroBoardsResponse {
   data?: Array<Record<string, unknown>>
   cursor?: string | null
@@ -69,7 +77,7 @@ export async function exchangeCodeForToken(code: string, redirectUri: string): P
 }
 
 export async function getMiroUser(accessToken: string): Promise<MiroUserResponse> {
-  const response = await fetch(`${MIRO_BASE_URL}/users/me`, {
+  const response = await fetch(`https://api.miro.com/v1/oauth-token`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   })
@@ -79,7 +87,19 @@ export async function getMiroUser(accessToken: string): Promise<MiroUserResponse
     throw new Error(`Miro user request failed (${response.status}): ${text}`)
   }
 
-  return (await response.json()) as MiroUserResponse
+  const payload = (await response.json()) as MiroTokenContextResponse
+  const user = payload.user
+  const userId = user?.id
+
+  if (typeof userId !== "string" && typeof userId !== "number") {
+    throw new Error("Miro user request failed: missing user id in token context")
+  }
+
+  return {
+    id: String(userId),
+    name: user?.name,
+    email: user?.email,
+  }
 }
 
 function toStringOrUndefined(value: unknown): string | undefined {
