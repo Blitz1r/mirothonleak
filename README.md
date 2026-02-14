@@ -1,5 +1,12 @@
 # MiroLeak
 
+# Usage through https://mirothonleak.vercel.app/
+
+To use the scanner, go to:
+
+- https://miro.com/app-install/?response_type=code&client_id=3458764659723440331&redirect_uri=%2Fapp-install%2Fconfirm%2F
+- Add the team for the scanner usage
+
 ## OAuth Setup (Miro)
 
 ### 1) Create local env file
