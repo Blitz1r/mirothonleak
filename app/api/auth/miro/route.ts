@@ -6,7 +6,7 @@ import { putOAuthState } from "@/lib/server/storage"
 
 export async function GET(request: NextRequest) {
   const state = createId("state")
-  putOAuthState(state)
+  await putOAuthState(state)
 
   const forwardedProto = request.headers.get("x-forwarded-proto")
   const forwardedHost = request.headers.get("x-forwarded-host")

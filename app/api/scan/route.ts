@@ -5,7 +5,13 @@ import { DEFAULT_SETTINGS, MIRO_SESSION_COOKIE } from "@/lib/server/constants"
 import { getFallbackBoards } from "@/lib/server/fallback"
 import { isMiroConfigured, listMiroBoards } from "@/lib/server/miro"
 import { runScan } from "@/lib/server/scanner"
-import { getMiroSession, getUserSettings, listScans, putScan, setUserSettings } from "@/lib/server/storage"
+import {
+  getMiroSession,
+  getUserSettings,
+  listScanSummaries,
+  putScan,
+  setUserSettings,
+} from "@/lib/server/storage"
 
 const settingsSchema = z.object({
   staleDaysThreshold: z.number().int().min(1).max(365),
@@ -17,9 +23,9 @@ const scanRequestSchema = z.object({
   settings: settingsSchema.optional(),
 })
 
-function getCurrentUser(request: NextRequest): { userId: string; accessToken?: string } {
+async function getCurrentUser(request: NextRequest): Promise<{ userId: string; accessToken?: string }> {
   const sessionId = request.cookies.get(MIRO_SESSION_COOKIE)?.value
-  const session = getMiroSession(sessionId)
+  const session = await getMiroSession(sessionId)
 
   if (session) {
     return { userId: session.userId, accessToken: session.accessToken }
@@ -29,8 +35,8 @@ function getCurrentUser(request: NextRequest): { userId: string; accessToken?: s
 }
 
 export async function GET(request: NextRequest) {
-  const { userId } = getCurrentUser(request)
-  const scans = listScans(userId).map((record) => record.summary)
+  const { userId } = await getCurrentUser(request)
+  const scans = await listScanSummaries(userId)
   return NextResponse.json({ scans })
 }
 
@@ -42,15 +48,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { userId, accessToken } = getCurrentUser(request)
-  const currentSettings = getUserSettings(userId)
+  const { userId, accessToken } = await getCurrentUser(request)
+  const currentSettings = await getUserSettings(userId)
   const settings = {
     ...DEFAULT_SETTINGS,
     ...currentSettings,
     ...(parsed.data.settings ?? {}),
   }
 
-  setUserSettings(userId, settings)
+  await setUserSettings(userId, settings)
 
   let source: "miro" | "mock" = "mock"
   let warning: string | undefined
@@ -69,7 +75,7 @@ export async function POST(request: NextRequest) {
   }
 
   const scanRecord = runScan(userId, boards, settings)
-  putScan(userId, scanRecord.summary.id, scanRecord)
+  await putScan(userId, scanRecord.summary.id, scanRecord)
 
   return NextResponse.json({
     source,

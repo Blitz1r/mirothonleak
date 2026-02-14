@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,14 +14,83 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<SettingsConfig>({ ...DEFAULT_SETTINGS })
   const [newKeyword, setNewKeyword] = useState("")
   const [saved, setSaved] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSave = () => {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  useEffect(() => {
+    const loadSettings = async () => {
+      setError(null)
+      try {
+        const response = await fetch("/api/settings")
+        const data = (await response.json()) as { settings?: SettingsConfig; error?: string }
+
+        if (!response.ok || !data.settings) {
+          setError(data.error ?? "Failed to load settings")
+          return
+        }
+
+        setSettings(data.settings)
+      } catch {
+        setError("Failed to load settings")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    void loadSettings()
+  }, [])
+
+  const handleSave = async () => {
+    setError(null)
+    setIsSaving(true)
+
+    try {
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(settings),
+      })
+
+      const data = (await response.json()) as { settings?: SettingsConfig; error?: string }
+
+      if (!response.ok || !data.settings) {
+        setError(data.error ?? "Failed to save settings")
+        return
+      }
+
+      setSettings(data.settings)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch {
+      setError("Failed to save settings")
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleReset = () => {
+  const handleReset = async () => {
     setSettings({ ...DEFAULT_SETTINGS })
+    setError(null)
+
+    try {
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(DEFAULT_SETTINGS),
+      })
+
+      const data = (await response.json()) as { settings?: SettingsConfig; error?: string }
+      if (!response.ok || !data.settings) {
+        setError(data.error ?? "Failed to reset settings")
+      }
+    } catch {
+      setError("Failed to reset settings")
+    }
   }
 
   const addKeyword = () => {
@@ -52,16 +121,18 @@ export default function SettingsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleReset} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handleReset} className="gap-2" disabled={isSaving || isLoading}>
             <RotateCcw className="h-4 w-4" />
             Reset
           </Button>
-          <Button size="sm" onClick={handleSave} className="gap-2">
+          <Button size="sm" onClick={handleSave} className="gap-2" disabled={isSaving || isLoading}>
             <Save className="h-4 w-4" />
-            {saved ? "Saved" : "Save Changes"}
+            {isSaving ? "Saving..." : saved ? "Saved" : "Save Changes"}
           </Button>
         </div>
       </div>
+
+      {error ? <p className="text-xs text-severity-high">{error}</p> : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Scan Thresholds */}
@@ -96,6 +167,7 @@ export default function SettingsPage() {
                     staleDaysThreshold: parseInt(e.target.value) || 90,
                   }))
                 }
+                disabled={isLoading}
                 className="max-w-[200px] bg-secondary border-border text-foreground"
               />
               <span className="text-xs text-muted-foreground">
@@ -125,6 +197,7 @@ export default function SettingsPage() {
                     maxEditorsThreshold: parseInt(e.target.value) || 10,
                   }))
                 }
+                disabled={isLoading}
                 className="max-w-[200px] bg-secondary border-border text-foreground"
               />
               <span className="text-xs text-muted-foreground">
@@ -153,13 +226,14 @@ export default function SettingsPage() {
                 value={newKeyword}
                 onChange={(e) => setNewKeyword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addKeyword()}
+                disabled={isLoading}
                 className="bg-secondary border-border text-foreground placeholder:text-muted-foreground"
               />
               <Button
                 variant="outline"
                 size="icon"
                 onClick={addKeyword}
-                disabled={!newKeyword.trim()}
+                disabled={!newKeyword.trim() || isLoading}
               >
                 <Plus className="h-4 w-4" />
               </Button>

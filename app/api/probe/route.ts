@@ -27,7 +27,7 @@ function getClientIp(request: NextRequest): string {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const ip = getClientIp(request)
-  if (isProbeRateLimited(ip)) {
+  if (await isProbeRateLimited(ip)) {
     return NextResponse.json(
       { error: "Rate limit exceeded. Maximum 100 probes per minute per IP." },
       { status: 429 },
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     results,
   }
 
-  putProbeSession(session)
+  await putProbeSession(session)
 
   return NextResponse.json({
     sessionId,
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "sessionId is required" }, { status: 400 })
   }
 
-  const session = getProbeSession(sessionId)
+  const session = await getProbeSession(sessionId)
   if (!session) {
     return NextResponse.json({ error: "Probe session not found" }, { status: 404 })
   }

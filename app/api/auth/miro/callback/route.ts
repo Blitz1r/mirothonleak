@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing OAuth code or state" }, { status: 400 })
   }
 
-  if (!consumeOAuthState(state)) {
+  if (!(await consumeOAuthState(state))) {
     return NextResponse.json({ error: "Invalid or expired OAuth state" }, { status: 400 })
   }
 
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const sessionId = createId("miro-session")
     const expiresAt = token.expires_in ? Date.now() + token.expires_in * 1000 : undefined
 
-    putMiroSession({
+    await putMiroSession({
       id: sessionId,
       userId: user.id,
       accessToken: token.access_token,

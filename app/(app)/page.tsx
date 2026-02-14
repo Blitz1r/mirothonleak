@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Shield, AlertTriangle, ShieldCheck, ShieldAlert } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { PostureGauge } from "@/components/dashboard/posture-gauge"
@@ -7,24 +8,58 @@ import { RiskBreakdown } from "@/components/dashboard/risk-breakdown"
 import { TopRisksTable } from "@/components/dashboard/top-risks-table"
 import { RecentScans } from "@/components/dashboard/recent-scans"
 import {
-  MOCK_BOARDS,
-  MOCK_SCANS,
+  type ScannedBoard,
+  type ScanSummary,
   getOverallPostureScore,
   getSeverityFromScore,
 } from "@/lib/mock-data"
 
 export default function DashboardPage() {
-  const allFindings = MOCK_BOARDS.flatMap((b) => b.findings)
-  const overallScore = getOverallPostureScore(MOCK_BOARDS)
+  const [boards, setBoards] = useState<ScannedBoard[]>([])
+  const [scans, setScans] = useState<ScanSummary[]>([])
+
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        const scanListResponse = await fetch("/api/scan")
+        const scanListData = (await scanListResponse.json()) as {
+          scans?: ScanSummary[]
+        }
+
+        const summaries = scanListData.scans ?? []
+        setScans(summaries)
+
+        if (summaries.length === 0) {
+          setBoards([])
+          return
+        }
+
+        const latestScanResponse = await fetch(`/api/scan/${summaries[0].id}`)
+        const latestScanData = (await latestScanResponse.json()) as {
+          boards?: ScannedBoard[]
+        }
+
+        setBoards(latestScanData.boards ?? [])
+      } catch {
+        setScans([])
+        setBoards([])
+      }
+    }
+
+    void loadDashboard()
+  }, [])
+
+  const allFindings = boards.flatMap((b) => b.findings)
+  const overallScore = getOverallPostureScore(boards)
   const overallSeverity = getSeverityFromScore(overallScore)
-  const highRiskCount = MOCK_BOARDS.filter((b) => b.severity === "high").length
-  const mediumRiskCount = MOCK_BOARDS.filter((b) => b.severity === "medium").length
-  const lowRiskCount = MOCK_BOARDS.filter((b) => b.severity === "low").length
+  const highRiskCount = boards.filter((b) => b.severity === "high").length
+  const mediumRiskCount = boards.filter((b) => b.severity === "medium").length
+  const lowRiskCount = boards.filter((b) => b.severity === "low").length
 
   const stats = [
     {
       label: "Total Boards",
-      value: MOCK_BOARDS.length,
+      value: boards.length,
       icon: Shield,
       color: "text-primary",
     },
@@ -90,8 +125,8 @@ export default function DashboardPage() {
 
       {/* Top risks + Recent scans */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <TopRisksTable boards={MOCK_BOARDS} />
-        <RecentScans scans={MOCK_SCANS} />
+        <TopRisksTable boards={boards} />
+        <RecentScans scans={scans} />
       </div>
     </div>
   )

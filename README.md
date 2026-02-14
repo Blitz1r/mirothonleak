@@ -18,6 +18,8 @@ Required variables:
 Optional:
 
 - `MIRO_REDIRECT_URI` (recommended to set explicitly)
+- `SUPABASE_URL` (for persistent storage)
+- `SUPABASE_SERVICE_ROLE_KEY` (for server-side DB writes)
 
 For local development, use:
 
@@ -45,6 +47,18 @@ Then open:
 
 Click **Sign in with Miro** to start OAuth.
 
+### 3.1) Enable persistent database storage (Supabase)
+
+If you want scans, probe sessions, and settings to persist across restarts:
+
+1. Create a Supabase project.
+2. In Supabase SQL editor, run the SQL in `supabase/schema.sql`.
+3. Add these values to `.env.local`:
+	- `SUPABASE_URL`
+	- `SUPABASE_SERVICE_ROLE_KEY`
+
+If these variables are missing, the app still runs using in-memory storage.
+
 ### 4) Add env vars in Vercel
 
 In Vercel project settings → **Environment Variables**, add:
@@ -52,5 +66,7 @@ In Vercel project settings → **Environment Variables**, add:
 - `MIRO_CLIENT_ID`
 - `MIRO_CLIENT_SECRET`
 - `MIRO_REDIRECT_URI` = `https://<your-vercel-domain>/api/auth/miro/callback`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
 
 Redeploy after setting variables.

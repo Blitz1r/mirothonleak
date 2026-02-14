@@ -1,0 +1,70 @@
+create table if not exists scans (
+  id text primary key,
+  user_id text not null,
+  created_at timestamptz not null default now(),
+  summary jsonb not null
+);
+
+create index if not exists scans_user_created_idx on scans (user_id, created_at desc);
+
+create table if not exists scan_boards (
+  id bigserial primary key,
+  scan_id text not null references scans(id) on delete cascade,
+  board_id text not null,
+  board_name text not null,
+  owner text not null,
+  team text not null,
+  last_modified timestamptz not null,
+  risk_score integer not null,
+  severity text not null,
+  findings jsonb not null default '[]'::jsonb
+);
+
+create index if not exists scan_boards_scan_idx on scan_boards (scan_id);
+
+create table if not exists probe_sessions (
+  id text primary key,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists probe_results (
+  id text primary key,
+  session_id text not null references probe_sessions(id) on delete cascade,
+  board_url text not null,
+  board_id text not null,
+  status text not null,
+  http_code integer not null,
+  checked_at timestamptz not null
+);
+
+create index if not exists probe_results_session_idx on probe_results (session_id, checked_at asc);
+
+create table if not exists user_settings (
+  user_id text primary key,
+  stale_days_threshold integer not null,
+  max_editors_threshold integer not null,
+  sensitive_keywords text[] not null,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists oauth_states (
+  id text primary key,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists miro_sessions (
+  id text primary key,
+  user_id text not null,
+  access_token text not null,
+  refresh_token text,
+  expires_at bigint,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists miro_sessions_user_idx on miro_sessions (user_id, created_at desc);
+
+create table if not exists probe_rate_limits (
+  ip text primary key,
+  bucket jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null default now()
+);
