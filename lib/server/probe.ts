@@ -51,18 +51,13 @@ async function probeSingleUrl(url: string, sessionId: string): Promise<ProbeResu
     })
 
     const location = response.headers.get("location") ?? undefined
-    let htmlSnippet: string | undefined
-    const contentType = response.headers.get("content-type") ?? ""
     let effectiveHttpCode = response.status
 
-    if (response.status === 200 && contentType.includes("text/html")) {
+    if (response.status === 200) {
       const apiStatus = await probeBoardApiStatus(boardId, controller.signal)
       if (apiStatus === 200 || apiStatus === 401 || apiStatus === 403) {
         effectiveHttpCode = apiStatus
       }
-
-      const html = await response.text()
-      htmlSnippet = html.slice(0, 15000)
     }
 
     return {
@@ -70,7 +65,7 @@ async function probeSingleUrl(url: string, sessionId: string): Promise<ProbeResu
       sessionId,
       boardUrl: url,
       boardId,
-      status: classifyProbeStatus(effectiveHttpCode, location, htmlSnippet),
+      status: classifyProbeStatus(effectiveHttpCode, location),
       httpCode: effectiveHttpCode,
       checkedAt: nowIso(),
     }

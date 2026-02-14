@@ -25,23 +25,8 @@ export function parseMiroBoardId(url: string): string | null {
   return match ? match[1] : null
 }
 
-export function isPasswordProtectedMiroHtml(html: string): boolean {
-  const passwordWallPatterns = [
-    /enter the password to open this board/i,
-    /you['’]re entering anonymously/i,
-    /sign up to miro/i,
-  ]
-
-  return passwordWallPatterns.some((pattern) => pattern.test(html))
-}
-
-export function classifyProbeStatus(httpCode: number, redirectedTo?: string, htmlSnippet?: string): ProbeStatus {
-  if (httpCode === 200) {
-    if (htmlSnippet && isPasswordProtectedMiroHtml(htmlSnippet)) {
-      return "protected"
-    }
-    return "viewable"
-  }
+export function classifyProbeStatus(httpCode: number, redirectedTo?: string): ProbeStatus {
+  if (httpCode === 200) return "viewable"
   if (httpCode === 401 || httpCode === 403) return "protected"
 
   if ([301, 302, 303, 307, 308].includes(httpCode)) {
