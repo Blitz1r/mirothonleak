@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/table"
 import { BoardFindingsPanel } from "@/components/scanner/board-findings-panel"
 import {
-  MOCK_BOARDS,
   formatDate,
   type ScannedBoard,
   type Severity,
@@ -50,22 +49,69 @@ export default function ScannerPage() {
   const [isScanning, setIsScanning] = useState(false)
   const [boards, setBoards] = useState<ScannedBoard[]>([])
   const [selectedBoard, setSelectedBoard] = useState<ScannedBoard | null>(null)
+  const [apiError, setApiError] = useState<string | null>(null)
   const [filterText, setFilterText] = useState("")
   const [filterSeverity, setFilterSeverity] = useState<Severity | "all">("all")
   const [sortField, setSortField] = useState<SortField>("riskScore")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
 
-  const handleLogin = () => {
-    setIsAuthenticated(true)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("connected") === "1") {
+      setIsAuthenticated(true)
+    }
+  }, [])
+
+  const handleLogin = async () => {
+    setApiError(null)
+
+    try {
+      const response = await fetch("/api/auth/miro")
+      const data = (await response.json()) as { authUrl?: string; error?: string }
+
+      if (!response.ok || !data.authUrl) {
+        setApiError(data.error ?? "Unable to start OAuth flow")
+        return
+      }
+
+      window.location.href = data.authUrl
+    } catch {
+      setApiError("Unable to start OAuth flow")
+    }
   }
 
-  const handleScan = () => {
+  const handleScan = async () => {
+    setApiError(null)
     setIsScanning(true)
-    // Simulate scanning delay
-    setTimeout(() => {
-      setBoards(MOCK_BOARDS)
+
+    try {
+      const response = await fetch("/api/scan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      })
+
+      const data = (await response.json()) as {
+        boards?: ScannedBoard[]
+        error?: string
+      }
+
+      if (!response.ok || !data.boards) {
+        setApiError(data.error ?? "Scan failed")
+        return
+      }
+
+      setBoards(data.boards)
+      setSelectedBoard(data.boards[0] ?? null)
+      setIsAuthenticated(true)
+    } catch {
+      setApiError("Scan failed")
+    } finally {
       setIsScanning(false)
-    }, 1500)
+    }
   }
 
   const toggleSort = (field: SortField) => {
@@ -119,6 +165,9 @@ export default function ScannerPage() {
               <LogIn className="h-4 w-4" />
               Sign in with Miro
             </Button>
+            {apiError ? (
+              <p className="text-xs text-severity-high text-center">{apiError}</p>
+            ) : null}
             <p className="text-xs text-muted-foreground">
               Scopes: boards:read, team:read
             </p>
@@ -153,6 +202,9 @@ export default function ScannerPage() {
               <ScanSearch className="h-4 w-4" />
               Start Scan
             </Button>
+            {apiError ? (
+              <p className="text-xs text-severity-high text-center">{apiError}</p>
+            ) : null}
           </CardContent>
         </Card>
       </div>
@@ -204,6 +256,10 @@ export default function ScannerPage() {
           Re-scan
         </Button>
       </div>
+
+      {apiError ? (
+        <p className="text-sm text-severity-high">{apiError}</p>
+      ) : null}
 
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

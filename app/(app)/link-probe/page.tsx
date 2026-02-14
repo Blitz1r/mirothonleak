@@ -53,44 +53,14 @@ const statusConfig: Record<ProbeStatus, { label: string; color: string; icon: Re
   },
 }
 
-// Simulate probe responses based on board ID patterns
-function simulateProbe(url: string, boardId: string): ProbeResult {
-  const hash = boardId.split("").reduce((a, c) => a + c.charCodeAt(0), 0)
-  let status: ProbeStatus
-  let httpCode: number
-
-  if (boardId.includes("INVALID") || boardId.length < 5) {
-    status = "unreachable"
-    httpCode = 404
-  } else if (hash % 3 === 0) {
-    status = "viewable"
-    httpCode = 200
-  } else if (hash % 3 === 1) {
-    status = "protected"
-    httpCode = 401
-  } else {
-    status = "unreachable"
-    httpCode = 404
-  }
-
-  return {
-    id: `probe-${Math.random().toString(36).slice(2, 9)}`,
-    sessionId: `sess-${Date.now()}`,
-    boardUrl: url.trim(),
-    boardId,
-    status,
-    httpCode,
-    checkedAt: new Date().toISOString(),
-  }
-}
-
 export default function LinkProbePage() {
   const [urlInput, setUrlInput] = useState("")
   const [results, setResults] = useState<ProbeResult[]>([])
   const [errors, setErrors] = useState<string[]>([])
   const [isProbing, setIsProbing] = useState(false)
+  const [sessionId, setSessionId] = useState<string | null>(null)
 
-  const handleProbe = () => {
+  const handleProbe = async () => {
     const lines = urlInput
       .split(/[\n,]/)
       .map((l) => l.trim())
@@ -105,41 +75,46 @@ export default function LinkProbePage() {
     setIsProbing(true)
     setErrors([])
     setResults([])
+    setSessionId(null)
 
-    const newErrors: string[] = []
-    const newResults: ProbeResult[] = []
-
-    // Simulate staggered probing
-    setTimeout(() => {
-      lines.forEach((url, index) => {
-        const boardId = extractBoardId(url)
-        if (!boardId) {
-          newErrors.push(`Line ${index + 1}: Invalid Miro board URL - "${url.slice(0, 60)}"`)
-          return
-        }
-        newResults.push(simulateProbe(url, boardId))
+    try {
+      const response = await fetch("/api/probe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ input: urlInput }),
       })
 
-      setResults(newResults)
-      setErrors(newErrors)
+      const data = (await response.json()) as {
+        sessionId?: string
+        results?: ProbeResult[]
+        error?: string
+      }
+
+      if (!response.ok || !data.results) {
+        setErrors([data.error ?? "Probe failed"])
+        return
+      }
+
+      const invalidLines = lines
+        .map((url, index) => ({ url, index }))
+        .filter(({ url }) => !extractBoardId(url))
+        .map(({ url, index }) => `Line ${index + 1}: Invalid Miro board URL - "${url.slice(0, 60)}"`)
+
+      setResults(data.results)
+      setSessionId(data.sessionId ?? null)
+      setErrors(invalidLines)
+    } catch {
+      setErrors(["Probe failed"])
+    } finally {
       setIsProbing(false)
-    }, 1200)
+    }
   }
 
   const handleExportCSV = () => {
-    if (results.length === 0) return
-    const header = "No,Board URL,Board ID,Status,HTTP Code,Checked At"
-    const rows = results.map(
-      (r, i) => `${i + 1},"${r.boardUrl}","${r.boardId}","${r.status}",${r.httpCode},"${r.checkedAt}"`
-    )
-    const csv = [header, ...rows].join("\n")
-    const blob = new Blob([csv], { type: "text/csv" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `link-probe-results-${Date.now()}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    if (!sessionId) return
+    window.open(`/api/export/${sessionId}?type=probe`, "_blank")
   }
 
   const viewableCount = results.filter((r) => r.status === "viewable").length
