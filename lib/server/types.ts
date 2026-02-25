@@ -1,5 +1,5 @@
 export type Severity = "low" | "medium" | "high"
-export type CheckType = "public_link" | "anon_access" | "stale" | "editors" | "sensitive_text"
+export type CheckType = "public_link" | "public_edit_access" | "stale" | "editors" | "sensitive_text"
 export type ProbeStatus = "viewable" | "protected" | "unreachable"
 
 export interface SettingsConfig {
@@ -84,6 +84,6 @@ export interface MiroBoard {
   team?: string
   editorCount?: number
   publicAccess?: boolean
-  anonymousAccess?: boolean
+  publicEditAccess?: boolean
   contentText?: string
 }

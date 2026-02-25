@@ -20,7 +20,7 @@ import {
 
 const checkIcons: Record<CheckType, React.ElementType> = {
   public_link: Globe,
-  anon_access: UserX,
+  public_edit_access: UserX,
   stale: Clock,
   editors: Users,
   sensitive_text: FileWarning,

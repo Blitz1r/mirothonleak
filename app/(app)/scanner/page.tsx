@@ -48,6 +48,8 @@ export default function ScannerPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
   const [boards, setBoards] = useState<ScannedBoard[]>([])
+  const [scanSource, setScanSource] = useState<"miro" | "mock" | null>(null)
+  const [scanWarning, setScanWarning] = useState<string | null>(null)
   const [selectedBoard, setSelectedBoard] = useState<ScannedBoard | null>(null)
   const [apiError, setApiError] = useState<string | null>(null)
   const [filterText, setFilterText] = useState("")
@@ -83,6 +85,7 @@ export default function ScannerPage() {
 
   const handleScan = async () => {
     setApiError(null)
+    setScanWarning(null)
     setIsScanning(true)
 
     try {
@@ -96,6 +99,8 @@ export default function ScannerPage() {
 
       const data = (await response.json()) as {
         boards?: ScannedBoard[]
+        source?: "miro" | "mock"
+        warning?: string
         error?: string
       }
 
@@ -105,6 +110,8 @@ export default function ScannerPage() {
       }
 
       setBoards(data.boards)
+      setScanSource(data.source ?? null)
+      setScanWarning(data.warning ?? null)
       setSelectedBoard(data.boards[0] ?? null)
       setIsAuthenticated(true)
     } catch {
@@ -247,9 +254,16 @@ export default function ScannerPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Board Scanner</h1>
-          <p className="text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span>
             {filteredBoards.length} of {boards.length} boards shown
-          </p>
+            </span>
+            {scanSource ? (
+              <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                Source: {scanSource}
+              </Badge>
+            ) : null}
+          </div>
         </div>
         <Button onClick={handleScan} variant="outline" size="sm" className="gap-2">
           <ScanSearch className="h-4 w-4" />
@@ -259,6 +273,10 @@ export default function ScannerPage() {
 
       {apiError ? (
         <p className="text-sm text-severity-high">{apiError}</p>
+      ) : null}
+
+      {scanWarning ? (
+        <p className="text-sm text-severity-medium">{scanWarning}</p>
       ) : null}
 
       {/* Filters */}

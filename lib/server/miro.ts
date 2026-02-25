@@ -156,6 +156,29 @@ function extractEditorCountFromMember(raw: Record<string, unknown>): number {
   return possibleRoleValues.some((value) => looksLikeEditorRole(value)) ? 1 : 0
 }
 
+function extractMemberRoleValues(raw: Record<string, unknown>): string[] {
+  const possibleRoleValues: unknown[] = [
+    raw.role,
+    raw.access,
+    raw.permission,
+    getNestedValue(raw, ["permissions", "role"]),
+    getNestedValue(raw, ["permissions", "access"]),
+    getNestedValue(raw, ["permissions", "permission"]),
+    getNestedValue(raw, ["policy", "role"]),
+    getNestedValue(raw, ["policy", "access"]),
+  ]
+
+  return possibleRoleValues
+    .flatMap((value) => {
+      if (typeof value === "string") return [value.toLowerCase()]
+      if (Array.isArray(value)) {
+        return value.filter((item): item is string => typeof item === "string").map((item) => item.toLowerCase())
+      }
+      return []
+    })
+    .filter(Boolean)
+}
+
 function collectTextFragments(value: unknown, depth = 0): string[] {
   if (depth > 5 || value == null) return []
 
@@ -188,9 +211,8 @@ function detectPublicAccess(raw: Record<string, unknown>): boolean | undefined {
   const accessCandidates = [
     getNestedValue(raw, ["sharingPolicy", "access"]),
     getNestedValue(raw, ["sharing_policy", "access"]),
-    getNestedValue(raw, ["permissionsPolicy", "access"]),
-    getNestedValue(raw, ["permissionPolicy", "access"]),
-    getNestedValue(raw, ["policy", "access"]),
+    getNestedValue(raw, ["policy", "sharingPolicy", "access"]),
+    getNestedValue(raw, ["policy", "sharing_policy", "access"]),
     getNestedValue(raw, ["access"]),
   ]
 
@@ -198,35 +220,127 @@ function detectPublicAccess(raw: Record<string, unknown>): boolean | undefined {
     .map((value) => (typeof value === "string" ? value.toLowerCase() : ""))
     .filter(Boolean)
 
+  if (lowered.some((value) => value === "edit" || value === "view" || value === "comment")) {
+    return true
+  }
+
   if (lowered.some((value) => value.includes("anyone") || value.includes("public"))) {
     return true
   }
 
-  if (lowered.some((value) => value.includes("private") || value.includes("owner") || value.includes("team"))) {
+  if (lowered.some((value) => value.includes("private") || value.includes("owner") || value.includes("team") || value.includes("no_access"))) {
     return false
   }
 
   return undefined
 }
 
-function detectAnonymousAccess(raw: Record<string, unknown>): boolean | undefined {
-  const direct = toBooleanOrUndefined(raw.anonymousAccess)
+function detectPublicEditAccess(raw: Record<string, unknown>): boolean | undefined {
+  const direct = toBooleanOrUndefined(raw.publicEditAccess)
   if (typeof direct === "boolean") return direct
 
-  const candidates = [
-    getNestedValue(raw, ["sharingPolicy", "anonymousAccess"]),
-    getNestedValue(raw, ["permissionsPolicy", "anonymousAccess"]),
-    getNestedValue(raw, ["policy", "anonymousAccess"]),
-    getNestedValue(raw, ["anonymousAccess"]),
+  const booleanCandidates = [
+    getNestedValue(raw, ["sharingPolicy", "publicEditAccess"]),
+    getNestedValue(raw, ["permissionsPolicy", "publicEditAccess"]),
+    getNestedValue(raw, ["policy", "publicEditAccess"]),
+    getNestedValue(raw, ["publicEditAccess"]),
   ]
 
-  for (const value of candidates) {
+  for (const value of booleanCandidates) {
     if (typeof value === "boolean") return value
     if (typeof value === "string") {
       const lowered = value.toLowerCase()
       if (["true", "yes", "enabled", "on"].includes(lowered)) return true
       if (["false", "no", "disabled", "off"].includes(lowered)) return false
     }
+  }
+
+  const accessCandidates = [
+    getNestedValue(raw, ["sharingPolicy", "access"]),
+    getNestedValue(raw, ["sharing_policy", "access"]),
+    getNestedValue(raw, ["policy", "sharingPolicy", "access"]),
+    getNestedValue(raw, ["policy", "sharing_policy", "access"]),
+    getNestedValue(raw, ["access"]),
+  ]
+
+  const inviteLinkRoleCandidates = [
+    getNestedValue(raw, ["sharingPolicy", "inviteToAccountAndBoardLinkAccess"]),
+    getNestedValue(raw, ["sharing_policy", "inviteToAccountAndBoardLinkAccess"]),
+    getNestedValue(raw, ["policy", "sharingPolicy", "inviteToAccountAndBoardLinkAccess"]),
+    getNestedValue(raw, ["inviteToAccountAndBoardLinkAccess"]),
+  ]
+
+  const lowered = accessCandidates
+    .map((value) => (typeof value === "string" ? value.toLowerCase() : ""))
+    .filter(Boolean)
+
+  const loweredInviteRoles = inviteLinkRoleCandidates
+    .map((value) => (typeof value === "string" ? value.toLowerCase() : ""))
+    .filter(Boolean)
+
+  const publicAccess = detectPublicAccess(raw)
+
+  if (lowered.some((value) => value === "edit")) {
+    return true
+  }
+
+  if (lowered.some((value) => value === "view" || value === "comment" || value === "private" || value === "no_access")) {
+    return false
+  }
+
+  if (publicAccess === true) {
+    if (loweredInviteRoles.some((value) => value === "editor" || value === "edit")) {
+      return true
+    }
+    if (loweredInviteRoles.some((value) => value === "viewer" || value === "commenter" || value === "no_access")) {
+      return false
+    }
+  }
+
+  const allowsPublic = lowered.some(
+    (value) => value.includes("anyone") || value.includes("public") || value === "edit" || value === "view" || value === "comment",
+  )
+  if (!allowsPublic) return undefined
+
+  const roleCandidates = [
+    getNestedValue(raw, ["sharingPolicy", "role"]),
+    getNestedValue(raw, ["sharing_policy", "role"]),
+    getNestedValue(raw, ["permissionsPolicy", "role"]),
+    getNestedValue(raw, ["permissionPolicy", "role"]),
+    getNestedValue(raw, ["policy", "role"]),
+    getNestedValue(raw, ["sharingPolicy", "permission"]),
+    getNestedValue(raw, ["permissionsPolicy", "permission"]),
+    getNestedValue(raw, ["policy", "permission"]),
+    getNestedValue(raw, ["role"]),
+    getNestedValue(raw, ["permission"]),
+  ]
+
+  const loweredRoles = roleCandidates
+    .flatMap((value) => {
+      if (typeof value === "string") return [value.toLowerCase()]
+      if (Array.isArray(value)) {
+        return value
+          .filter((item): item is string => typeof item === "string")
+          .map((item) => item.toLowerCase())
+      }
+      return []
+    })
+    .filter(Boolean)
+
+  if (lowered.some((value) => value.includes("edit") || value.includes("editor") || value.includes("write") || value.includes("can_edit"))) {
+    return true
+  }
+
+  if (loweredRoles.some((value) => value.includes("edit") || value.includes("editor") || value.includes("write") || value.includes("can_edit"))) {
+    return true
+  }
+
+  if (lowered.some((value) => value.includes("view") || value.includes("read") || value.includes("comment"))) {
+    return false
+  }
+
+  if (loweredRoles.some((value) => value.includes("view") || value.includes("read") || value.includes("comment") || value.includes("viewer"))) {
+    return false
   }
 
   return undefined
@@ -249,7 +363,7 @@ function mapMiroBoard(raw: Record<string, unknown>): MiroBoard {
     team: toStringOrUndefined(teamObject?.name),
     editorCount: toNumberOrUndefined(raw.editorCount),
     publicAccess: detectPublicAccess(raw),
-    anonymousAccess: detectAnonymousAccess(raw),
+    publicEditAccess: detectPublicEditAccess(raw),
     contentText: contentHint,
   }
 }
@@ -303,7 +417,11 @@ async function fetchBoardItemsText(accessToken: string, boardId: string, maxPage
   return textParts.join(" ")
 }
 
-async function fetchBoardEditorCount(accessToken: string, boardId: string, maxPages = 5): Promise<number | undefined> {
+async function fetchBoardMemberSignals(
+  accessToken: string,
+  boardId: string,
+  maxPages = 5,
+): Promise<{ editorCount?: number }> {
   let count = 0
   let foundAny = false
   let cursor: string | null = null
@@ -333,7 +451,10 @@ async function fetchBoardEditorCount(accessToken: string, boardId: string, maxPa
     }
 
     for (const member of members) {
-      count += extractEditorCountFromMember(member)
+      const editorHit = extractEditorCountFromMember(member) === 1
+      count += editorHit ? 1 : 0
+
+      extractMemberRoleValues(member)
     }
 
     cursor = payload.cursor ?? null
@@ -341,10 +462,14 @@ async function fetchBoardEditorCount(accessToken: string, boardId: string, maxPa
     page += 1
   }
 
-  return foundAny ? count : undefined
+  return {
+    editorCount: foundAny ? count : undefined,
+  }
 }
 
-async function probePublicBoard(boardId: string): Promise<boolean | undefined> {
+async function probePublicBoard(
+  boardId: string,
+): Promise<{ publicAccess?: boolean; publicEditAccess?: boolean }> {
   try {
     const response = await fetch(`https://miro.com/api/v1/boards/${encodeURIComponent(boardId)}`, {
       method: "GET",
@@ -356,20 +481,33 @@ async function probePublicBoard(boardId: string): Promise<boolean | undefined> {
       },
     })
 
-    if (response.status === 200) return true
-    if (response.status === 401 || response.status === 403 || response.status === 404) return false
-    return undefined
+    if (response.status === 200) {
+      const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null
+
+      if (!payload || typeof payload !== "object") {
+        return { publicAccess: true }
+      }
+
+      const publicEditAccess = detectPublicEditAccess(payload)
+      return { publicAccess: true, publicEditAccess }
+    }
+
+    if (response.status === 401 || response.status === 403 || response.status === 404) {
+      return { publicAccess: false, publicEditAccess: false }
+    }
+
+    return {}
   } catch {
-    return undefined
+    return {}
   }
 }
 
 async function enrichBoard(accessToken: string, board: MiroBoard): Promise<MiroBoard> {
-  const [details, itemsText, probedPublic, fetchedEditorCount] = await Promise.all([
+  const [details, itemsText, publicProbe, memberSignals] = await Promise.all([
     fetchBoardDetails(accessToken, board.id),
     fetchBoardItemsText(accessToken, board.id),
     probePublicBoard(board.id),
-    fetchBoardEditorCount(accessToken, board.id),
+    fetchBoardMemberSignals(accessToken, board.id),
   ])
 
   const detailBoard = details ? mapMiroBoard(details) : undefined
@@ -379,9 +517,12 @@ async function enrichBoard(accessToken: string, board: MiroBoard): Promise<MiroB
     ...detailBoard,
     id: board.id,
     name: detailBoard?.name ?? board.name,
-    publicAccess: probedPublic ?? detailBoard?.publicAccess ?? board.publicAccess,
-    anonymousAccess: detailBoard?.anonymousAccess ?? board.anonymousAccess,
-    editorCount: fetchedEditorCount ?? detailBoard?.editorCount ?? board.editorCount,
+    publicAccess: publicProbe.publicAccess ?? detailBoard?.publicAccess ?? board.publicAccess,
+    publicEditAccess:
+      detailBoard?.publicEditAccess ??
+      publicProbe.publicEditAccess ??
+      board.publicEditAccess,
+    editorCount: memberSignals.editorCount ?? detailBoard?.editorCount ?? board.editorCount,
     contentText: [board.contentText, detailBoard?.contentText, itemsText].filter(Boolean).join(" "),
   }
 }

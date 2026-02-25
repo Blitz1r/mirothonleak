@@ -9,7 +9,7 @@ export function getFallbackBoards(): MiroBoard[] {
     owner: board.owner,
     team: board.team,
     publicAccess: board.findings.some((item) => item.check === "public_link"),
-    anonymousAccess: board.findings.some((item) => item.check === "anon_access"),
+    publicEditAccess: board.findings.some((item) => item.check === "public_edit_access"),
     editorCount: (() => {
       const editorFinding = board.findings.find((item) => item.check === "editors")
       const count = editorFinding?.details?.editorCount

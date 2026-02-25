@@ -280,7 +280,7 @@ export default function SettingsPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {[
               { check: "Public Link Sharing", weight: 30, confidence: "High" },
-              { check: "Anonymous Access", weight: 20, confidence: "High" },
+              { check: "Public Edit Access", weight: 20, confidence: "High" },
               { check: "Stale Board", weight: 10, confidence: "High" },
               { check: "Too Many Editors", weight: 10, confidence: "Medium" },
               { check: "Sensitive Text", weight: 15, confidence: "Low" },
@@ -314,21 +314,21 @@ export default function SettingsPage() {
               <span className="h-3 w-3 rounded-full bg-severity-low" />
               <div className="flex flex-col">
                 <span className="text-sm font-medium text-severity-low">Low</span>
-                <span className="text-xs text-muted-foreground">Score 0-20</span>
+                <span className="text-xs text-muted-foreground">Score 0-19</span>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <span className="h-3 w-3 rounded-full bg-severity-medium" />
               <div className="flex flex-col">
                 <span className="text-sm font-medium text-severity-medium">Medium</span>
-                <span className="text-xs text-muted-foreground">Score 21-50</span>
+                <span className="text-xs text-muted-foreground">Score 20-49</span>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <span className="h-3 w-3 rounded-full bg-severity-high" />
               <div className="flex flex-col">
                 <span className="text-sm font-medium text-severity-high">High</span>
-                <span className="text-xs text-muted-foreground">Score 51+</span>
+                <span className="text-xs text-muted-foreground">Score 50+</span>
               </div>
             </div>
           </div>

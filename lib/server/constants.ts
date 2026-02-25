@@ -2,7 +2,7 @@ import type { CheckType, SettingsConfig } from "@/lib/server/types"
 
 export const CHECK_WEIGHTS: Record<CheckType, number> = {
   public_link: 30,
-  anon_access: 20,
+  public_edit_access: 20,
   stale: 10,
   editors: 10,
   sensitive_text: 15,

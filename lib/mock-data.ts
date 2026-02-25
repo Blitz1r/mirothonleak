@@ -1,6 +1,6 @@
 // Types
 export type Severity = "low" | "medium" | "high"
-export type CheckType = "public_link" | "anon_access" | "stale" | "editors" | "sensitive_text"
+export type CheckType = "public_link" | "public_edit_access" | "stale" | "editors" | "sensitive_text"
 export type ProbeStatus = "viewable" | "protected" | "unreachable"
 
 export interface BoardFinding {
@@ -55,7 +55,7 @@ export interface SettingsConfig {
 // Check labels & remediation
 export const CHECK_LABELS: Record<CheckType, string> = {
   public_link: "Public Link Sharing",
-  anon_access: "Anonymous Access",
+  public_edit_access: "Public Edit Access",
   stale: "Stale Board",
   editors: "Too Many Editors",
   sensitive_text: "Sensitive Text Detected",
@@ -63,7 +63,7 @@ export const CHECK_LABELS: Record<CheckType, string> = {
 
 export const CHECK_REMEDIATION: Record<CheckType, string> = {
   public_link: "Disable public link sharing in board settings. Go to Share, then Link sharing.",
-  anon_access: "Require Miro account sign-in under board sharing settings.",
+  public_edit_access: "Restrict public links to view/comment only and require explicit invite for edit rights.",
   stale: "Archive or delete this board if it is no longer needed.",
   editors: "Review the member list and downgrade unnecessary editors to viewers.",
   sensitive_text: "Review flagged content and remove or redact sensitive information.",
@@ -71,7 +71,7 @@ export const CHECK_REMEDIATION: Record<CheckType, string> = {
 
 export const CHECK_WEIGHTS: Record<CheckType, number> = {
   public_link: 30,
-  anon_access: 20,
+  public_edit_access: 20,
   stale: 10,
   editors: 10,
   sensitive_text: 15,
@@ -123,7 +123,7 @@ export const MOCK_BOARDS: ScannedBoard[] = [
     severity: "high",
     findings: [
       { id: "f1", scanId: "scan-001", boardId: "uXjVGBA5C7k=", boardName: "Q1 Product Roadmap", check: "public_link", severity: "high", score: 30, details: { sharingPolicy: "anyone" } },
-      { id: "f2", scanId: "scan-001", boardId: "uXjVGBA5C7k=", boardName: "Q1 Product Roadmap", check: "anon_access", severity: "high", score: 20, details: { anonymousAllowed: true } },
+      { id: "f2", scanId: "scan-001", boardId: "uXjVGBA5C7k=", boardName: "Q1 Product Roadmap", check: "public_edit_access", severity: "high", score: 20, details: { publicEditAllowed: true } },
       { id: "f3", scanId: "scan-001", boardId: "uXjVGBA5C7k=", boardName: "Q1 Product Roadmap", check: "editors", severity: "medium", score: 10, details: { editorCount: 14 } },
     ],
   },
@@ -176,7 +176,7 @@ export const MOCK_BOARDS: ScannedBoard[] = [
     severity: "medium",
     findings: [
       { id: "f10", scanId: "scan-001", boardId: "uXjVL4bNy8U=", boardName: "User Research Insights", check: "stale", severity: "medium", score: 10, details: { daysSinceModified: 91 } },
-      { id: "f11", scanId: "scan-001", boardId: "uXjVL4bNy8U=", boardName: "User Research Insights", check: "anon_access", severity: "high", score: 20, details: { anonymousAllowed: true } },
+      { id: "f11", scanId: "scan-001", boardId: "uXjVL4bNy8U=", boardName: "User Research Insights", check: "public_edit_access", severity: "high", score: 20, details: { publicEditAllowed: true } },
       { id: "f12", scanId: "scan-001", boardId: "uXjVL4bNy8U=", boardName: "User Research Insights", check: "editors", severity: "medium", score: 10, details: { editorCount: 11 } },
     ],
   },
@@ -224,7 +224,7 @@ export const MOCK_BOARDS: ScannedBoard[] = [
     severity: "medium",
     findings: [
       { id: "f15", scanId: "scan-001", boardId: "uXjVP6fUc0Y=", boardName: "Customer Journey Map", check: "stale", severity: "medium", score: 10, details: { daysSinceModified: 148 } },
-      { id: "f16", scanId: "scan-001", boardId: "uXjVP6fUc0Y=", boardName: "Customer Journey Map", check: "anon_access", severity: "high", score: 20, details: { anonymousAllowed: true } },
+      { id: "f16", scanId: "scan-001", boardId: "uXjVP6fUc0Y=", boardName: "Customer Journey Map", check: "public_edit_access", severity: "high", score: 20, details: { publicEditAllowed: true } },
     ],
   },
   {
@@ -283,8 +283,8 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
 
 // Utility functions
 export function getSeverityFromScore(score: number): Severity {
-  if (score >= 51) return "high"
-  if (score >= 21) return "medium"
+  if (score >= 50) return "high"
+  if (score >= 20) return "medium"
   return "low"
 }
 

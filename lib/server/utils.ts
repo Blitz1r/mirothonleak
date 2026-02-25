@@ -1,8 +1,8 @@
 import type { ProbeStatus, Severity } from "@/lib/server/types"
 
 export function getSeverityFromScore(score: number): Severity {
-  if (score >= 51) return "high"
-  if (score >= 21) return "medium"
+  if (score >= 50) return "high"
+  if (score >= 20) return "medium"
   return "low"
 }
 

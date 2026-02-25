@@ -53,10 +53,11 @@ function scanBoard(scanId: string, board: MiroBoard, settings: SettingsConfig): 
     )
   }
 
-  if (board.anonymousAccess) {
+  if (board.publicAccess && board.publicEditAccess) {
     findings.push(
-      createFinding(scanId, board, "anon_access", CHECK_WEIGHTS.anon_access, {
-        anonymousAccess: true,
+      createFinding(scanId, board, "public_edit_access", CHECK_WEIGHTS.public_edit_access, {
+        publicAccess: true,
+        publicEditAccess: true,
       }),
     )
   }
