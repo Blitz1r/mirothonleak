@@ -44,8 +44,12 @@ create table if not exists user_settings (
   stale_days_threshold integer not null,
   max_editors_threshold integer not null,
   sensitive_keywords text[] not null,
+  risk_checks jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
+
+alter table if exists user_settings
+  add column if not exists risk_checks jsonb not null default '{}'::jsonb;
 
 create table if not exists oauth_states (
   id text primary key,
@@ -68,3 +72,14 @@ create table if not exists probe_rate_limits (
   bucket jsonb not null default '[]'::jsonb,
   updated_at timestamptz not null default now()
 );
+
+grant usage on schema public to anon, authenticated, service_role;
+
+grant select, insert, update, delete on all tables in schema public to anon, authenticated, service_role;
+grant usage, select on all sequences in schema public to anon, authenticated, service_role;
+
+alter default privileges in schema public
+  grant select, insert, update, delete on tables to anon, authenticated, service_role;
+
+alter default privileges in schema public
+  grant usage, select on sequences to anon, authenticated, service_role;

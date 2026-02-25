@@ -13,10 +13,22 @@ import {
   setUserSettings,
 } from "@/lib/server/storage"
 
+const checkSettingSchema = z.object({
+  enabled: z.boolean(),
+  weight: z.number().int().min(0).max(100),
+})
+
 const settingsSchema = z.object({
   staleDaysThreshold: z.number().int().min(1).max(365),
   maxEditorsThreshold: z.number().int().min(1).max(1000),
   sensitiveKeywords: z.array(z.string().min(1)).max(100),
+  riskChecks: z.object({
+    public_link: checkSettingSchema,
+    public_edit_access: checkSettingSchema,
+    stale: checkSettingSchema,
+    editors: checkSettingSchema,
+    sensitive_text: checkSettingSchema,
+  }),
 })
 
 const scanRequestSchema = z.object({

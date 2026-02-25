@@ -6,12 +6,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { DEFAULT_SETTINGS, type SettingsConfig } from "@/lib/mock-data"
 import { Settings, Save, Plus, X, RotateCcw } from "lucide-react"
 
+const RISK_CHECKS: Array<{
+  key: keyof SettingsConfig["riskChecks"]
+  label: string
+  confidence: "High" | "Medium" | "Low"
+}> = [
+  { key: "public_link", label: "Public Link Sharing", confidence: "High" },
+  { key: "public_edit_access", label: "Public Edit Access", confidence: "High" },
+  { key: "stale", label: "Stale Board", confidence: "High" },
+  { key: "editors", label: "Too Many Editors", confidence: "Medium" },
+  { key: "sensitive_text", label: "Sensitive Text", confidence: "Low" },
+]
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<SettingsConfig>({ ...DEFAULT_SETTINGS })
+  const [thresholdInputs, setThresholdInputs] = useState<Partial<Record<"staleDaysThreshold" | "maxEditorsThreshold", string>>>({})
+  const [riskWeightInputs, setRiskWeightInputs] = useState<Partial<Record<keyof SettingsConfig["riskChecks"], string>>>({})
   const [newKeyword, setNewKeyword] = useState("")
   const [saved, setSaved] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -31,6 +46,8 @@ export default function SettingsPage() {
         }
 
         setSettings(data.settings)
+        setThresholdInputs({})
+        setRiskWeightInputs({})
       } catch {
         setError("Failed to load settings")
       } finally {
@@ -62,6 +79,8 @@ export default function SettingsPage() {
       }
 
       setSettings(data.settings)
+  setThresholdInputs({})
+      setRiskWeightInputs({})
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch {
@@ -73,6 +92,8 @@ export default function SettingsPage() {
 
   const handleReset = async () => {
     setSettings({ ...DEFAULT_SETTINGS })
+    setThresholdInputs({})
+    setRiskWeightInputs({})
     setError(null)
 
     try {
@@ -109,6 +130,58 @@ export default function SettingsPage() {
       ...prev,
       sensitiveKeywords: prev.sensitiveKeywords.filter((k) => k !== keyword),
     }))
+  }
+
+  const commitThresholdInput = (field: "staleDaysThreshold" | "maxEditorsThreshold", min: number, max: number) => {
+    const rawValue = thresholdInputs[field]
+    if (rawValue === undefined) return
+
+    const parsed = rawValue.trim() === "" ? Number.NaN : Number.parseInt(rawValue, 10)
+
+    setSettings((prev) => {
+      const currentValue = prev[field]
+      const nextValue = Number.isNaN(parsed) ? currentValue : Math.min(max, Math.max(min, parsed))
+
+      return {
+        ...prev,
+        [field]: nextValue,
+      }
+    })
+
+    setThresholdInputs((prev) => {
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
+  }
+
+  const commitRiskWeight = (checkKey: keyof SettingsConfig["riskChecks"]) => {
+    const rawValue = riskWeightInputs[checkKey]
+    if (rawValue === undefined) return
+
+    const parsed = rawValue.trim() === "" ? 0 : Number.parseInt(rawValue, 10)
+
+    setSettings((prev) => {
+      const currentWeight = prev.riskChecks[checkKey].weight
+      const clampedWeight = Number.isNaN(parsed) ? currentWeight : Math.min(100, Math.max(0, parsed))
+
+      return {
+        ...prev,
+        riskChecks: {
+          ...prev.riskChecks,
+          [checkKey]: {
+            ...prev.riskChecks[checkKey],
+            weight: clampedWeight,
+          },
+        },
+      }
+    })
+
+    setRiskWeightInputs((prev) => {
+      const next = { ...prev }
+      delete next[checkKey]
+      return next
+    })
   }
 
   return (
@@ -160,13 +233,19 @@ export default function SettingsPage() {
                 type="number"
                 min={1}
                 max={365}
-                value={settings.staleDaysThreshold}
+                value={thresholdInputs.staleDaysThreshold ?? String(settings.staleDaysThreshold)}
                 onChange={(e) =>
-                  setSettings((prev) => ({
+                  setThresholdInputs((prev) => ({
                     ...prev,
-                    staleDaysThreshold: parseInt(e.target.value) || 90,
+                    staleDaysThreshold: e.target.value,
                   }))
                 }
+                onBlur={() => commitThresholdInput("staleDaysThreshold", 1, 365)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    commitThresholdInput("staleDaysThreshold", 1, 365)
+                  }
+                }}
                 disabled={isLoading}
                 className="max-w-[200px] bg-secondary border-border text-foreground"
               />
@@ -190,13 +269,19 @@ export default function SettingsPage() {
                 type="number"
                 min={1}
                 max={100}
-                value={settings.maxEditorsThreshold}
+                value={thresholdInputs.maxEditorsThreshold ?? String(settings.maxEditorsThreshold)}
                 onChange={(e) =>
-                  setSettings((prev) => ({
+                  setThresholdInputs((prev) => ({
                     ...prev,
-                    maxEditorsThreshold: parseInt(e.target.value) || 10,
+                    maxEditorsThreshold: e.target.value,
                   }))
                 }
+                onBlur={() => commitThresholdInput("maxEditorsThreshold", 1, 100)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    commitThresholdInput("maxEditorsThreshold", 1, 100)
+                  }
+                }}
                 disabled={isLoading}
                 className="max-w-[200px] bg-secondary border-border text-foreground"
               />
@@ -273,32 +358,71 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="text-sm font-medium text-foreground">Risk Score Reference</CardTitle>
           <CardDescription className="text-muted-foreground">
-            How each security check contributes to the per-board risk score (0-100 scale).
+            Configure each security check with a custom score impact and disable checks you do not want to include.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            {[
-              { check: "Public Link Sharing", weight: 30, confidence: "High" },
-              { check: "Public Edit Access", weight: 20, confidence: "High" },
-              { check: "Stale Board", weight: 10, confidence: "High" },
-              { check: "Too Many Editors", weight: 10, confidence: "Medium" },
-              { check: "Sensitive Text", weight: 15, confidence: "Low" },
-            ].map((item) => (
+            {RISK_CHECKS.map((item) => {
+              const checkSettings = settings.riskChecks[item.key]
+
+              return (
               <div
-                key={item.check}
+                key={item.key}
                 className="flex flex-col gap-2 rounded-lg border border-border bg-secondary/50 px-4 py-3"
               >
-                <span className="text-xs font-medium text-foreground">{item.check}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-foreground">{item.label}</span>
+                  <Switch
+                    checked={checkSettings.enabled}
+                    onCheckedChange={(enabled) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        riskChecks: {
+                          ...prev.riskChecks,
+                          [item.key]: {
+                            ...prev.riskChecks[item.key],
+                            enabled,
+                          },
+                        },
+                      }))
+                    }
+                    disabled={isLoading}
+                    aria-label={`${item.label} enabled`}
+                  />
+                </div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold font-mono text-primary tabular-nums">+{item.weight}</span>
+                  <span className="text-2xl font-bold font-mono text-primary tabular-nums">
+                    +{checkSettings.weight}
+                  </span>
                   <span className="text-xs text-muted-foreground">pts</span>
                 </div>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={riskWeightInputs[item.key] ?? String(checkSettings.weight)}
+                  onChange={(e) =>
+                    setRiskWeightInputs((prev) => ({
+                      ...prev,
+                      [item.key]: e.target.value,
+                    }))
+                  }
+                  onBlur={() => commitRiskWeight(item.key)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      commitRiskWeight(item.key)
+                    }
+                  }}
+                  disabled={isLoading || !checkSettings.enabled}
+                  className="h-8 bg-secondary border-border text-foreground"
+                />
                 <Badge variant="outline" className="w-fit text-[10px] border-border bg-secondary text-muted-foreground">
-                  {item.confidence} confidence
+                  {item.confidence} confidence · {checkSettings.enabled ? "Enabled" : "Disabled"}
                 </Badge>
               </div>
-            ))}
+              )
+            })}
           </div>
         </CardContent>
       </Card>

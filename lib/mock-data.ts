@@ -3,6 +3,11 @@ export type Severity = "low" | "medium" | "high"
 export type CheckType = "public_link" | "public_edit_access" | "stale" | "editors" | "sensitive_text"
 export type ProbeStatus = "viewable" | "protected" | "unreachable"
 
+export interface CheckSetting {
+  enabled: boolean
+  weight: number
+}
+
 export interface BoardFinding {
   id: string
   scanId: string
@@ -50,6 +55,7 @@ export interface SettingsConfig {
   staleDaysThreshold: number
   maxEditorsThreshold: number
   sensitiveKeywords: string[]
+  riskChecks: Record<CheckType, CheckSetting>
 }
 
 // Check labels & remediation
@@ -279,6 +285,13 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
   staleDaysThreshold: 90,
   maxEditorsThreshold: 10,
   sensitiveKeywords: ["password", "secret", "API key", "token", "SSN", "credit card", "private key"],
+  riskChecks: {
+    public_link: { enabled: true, weight: 30 },
+    public_edit_access: { enabled: true, weight: 20 },
+    stale: { enabled: true, weight: 10 },
+    editors: { enabled: true, weight: 10 },
+    sensitive_text: { enabled: true, weight: 15 },
+  },
 }
 
 // Utility functions

@@ -2,10 +2,16 @@ export type Severity = "low" | "medium" | "high"
 export type CheckType = "public_link" | "public_edit_access" | "stale" | "editors" | "sensitive_text"
 export type ProbeStatus = "viewable" | "protected" | "unreachable"
 
+export interface CheckSetting {
+  enabled: boolean
+  weight: number
+}
+
 export interface SettingsConfig {
   staleDaysThreshold: number
   maxEditorsThreshold: number
   sensitiveKeywords: string[]
+  riskChecks: Record<CheckType, CheckSetting>
 }
 
 export interface BoardFinding {

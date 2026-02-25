@@ -1,7 +1,7 @@
-import { CHECK_WEIGHTS } from "@/lib/server/constants"
 import { getSeverityFromScore, clampScore, createId } from "@/lib/server/utils"
 import type {
   BoardFinding,
+  CheckType,
   MiroBoard,
   ScanRecord,
   ScanSummary,
@@ -42,20 +42,28 @@ function detectSensitiveHits(content: string, keywords: string[]): string[] {
   return keywords.filter((keyword) => source.includes(keyword.toLowerCase()))
 }
 
+function isCheckEnabled(settings: SettingsConfig, check: CheckType): boolean {
+  return settings.riskChecks[check]?.enabled ?? true
+}
+
+function getCheckWeight(settings: SettingsConfig, check: CheckType): number {
+  return settings.riskChecks[check]?.weight ?? 0
+}
+
 function scanBoard(scanId: string, board: MiroBoard, settings: SettingsConfig): ScannedBoard {
   const findings: BoardFinding[] = []
 
-  if (board.publicAccess) {
+  if (isCheckEnabled(settings, "public_link") && board.publicAccess) {
     findings.push(
-      createFinding(scanId, board, "public_link", CHECK_WEIGHTS.public_link, {
+      createFinding(scanId, board, "public_link", getCheckWeight(settings, "public_link"), {
         publicAccess: true,
       }),
     )
   }
 
-  if (board.publicAccess && board.publicEditAccess) {
+  if (isCheckEnabled(settings, "public_edit_access") && board.publicAccess && board.publicEditAccess) {
     findings.push(
-      createFinding(scanId, board, "public_edit_access", CHECK_WEIGHTS.public_edit_access, {
+      createFinding(scanId, board, "public_edit_access", getCheckWeight(settings, "public_edit_access"), {
         publicAccess: true,
         publicEditAccess: true,
       }),
@@ -63,18 +71,18 @@ function scanBoard(scanId: string, board: MiroBoard, settings: SettingsConfig): 
   }
 
   const staleDays = daysSince(board.modifiedAt)
-  if (staleDays >= settings.staleDaysThreshold) {
+  if (isCheckEnabled(settings, "stale") && staleDays >= settings.staleDaysThreshold) {
     findings.push(
-      createFinding(scanId, board, "stale", CHECK_WEIGHTS.stale, {
+      createFinding(scanId, board, "stale", getCheckWeight(settings, "stale"), {
         daysSinceModified: staleDays,
         threshold: settings.staleDaysThreshold,
       }),
     )
   }
 
-  if (typeof board.editorCount === "number" && board.editorCount > settings.maxEditorsThreshold) {
+  if (isCheckEnabled(settings, "editors") && typeof board.editorCount === "number" && board.editorCount > settings.maxEditorsThreshold) {
     findings.push(
-      createFinding(scanId, board, "editors", CHECK_WEIGHTS.editors, {
+      createFinding(scanId, board, "editors", getCheckWeight(settings, "editors"), {
         editorCount: board.editorCount,
         threshold: settings.maxEditorsThreshold,
       }),
@@ -82,9 +90,9 @@ function scanBoard(scanId: string, board: MiroBoard, settings: SettingsConfig): 
   }
 
   const sensitiveHits = detectSensitiveHits(board.contentText ?? "", settings.sensitiveKeywords)
-  if (sensitiveHits.length > 0) {
+  if (isCheckEnabled(settings, "sensitive_text") && sensitiveHits.length > 0) {
     findings.push(
-      createFinding(scanId, board, "sensitive_text", CHECK_WEIGHTS.sensitive_text, {
+      createFinding(scanId, board, "sensitive_text", getCheckWeight(settings, "sensitive_text"), {
         keywords: sensitiveHits,
       }),
     )

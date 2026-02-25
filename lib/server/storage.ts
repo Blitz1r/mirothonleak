@@ -251,7 +251,7 @@ export async function getUserSettings(userId: string): Promise<SettingsConfig> {
 
   const { data, error } = await db
     .from("user_settings")
-    .select("stale_days_threshold, max_editors_threshold, sensitive_keywords")
+    .select("stale_days_threshold, max_editors_threshold, sensitive_keywords, risk_checks")
     .eq("user_id", userId)
     .maybeSingle()
 
@@ -270,6 +270,13 @@ export async function getUserSettings(userId: string): Promise<SettingsConfig> {
     sensitiveKeywords: Array.isArray(data.sensitive_keywords)
       ? data.sensitive_keywords.map((value: unknown) => String(value))
       : DEFAULT_SETTINGS.sensitiveKeywords,
+    riskChecks:
+      data.risk_checks && typeof data.risk_checks === "object"
+        ? {
+            ...DEFAULT_SETTINGS.riskChecks,
+            ...(data.risk_checks as SettingsConfig["riskChecks"]),
+          }
+        : DEFAULT_SETTINGS.riskChecks,
   }
 }
 
@@ -284,6 +291,7 @@ export async function setUserSettings(userId: string, settings: SettingsConfig):
     stale_days_threshold: settings.staleDaysThreshold,
     max_editors_threshold: settings.maxEditorsThreshold,
     sensitive_keywords: settings.sensitiveKeywords,
+    risk_checks: settings.riskChecks,
     updated_at: new Date().toISOString(),
   })
 
