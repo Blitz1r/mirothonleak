@@ -15,9 +15,9 @@ This app helps by:
 - presenting findings in a simple dashboard with practical remediation guidance,
 - allowing CSV export for reporting and follow-up.
 
-# Usage through https://mirothonleak.vercel.app/
+# Usage of scanner through https://mirothonleak.vercel.app/
 
-To use the scanner, go to:
+If you cannot add miro account on using the scanner, go to:
 
 - https://miro.com/app-install/?response_type=code&client_id=3458764659723440331&redirect_uri=%2Fapp-install%2Fconfirm%2F
 - Add the team for the scanner usage
