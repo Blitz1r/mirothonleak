@@ -1,6 +1,6 @@
 # MiroLeak
 
-## Background (For General Viewers)
+## Background
 
 MiroLeak (Miro Security Posture Analyzer) is a lightweight security visibility tool for Miro boards.
 
