@@ -1,17 +1,17 @@
 import { z } from "zod"
 import { NextRequest, NextResponse } from "next/server"
 
-import { DEFAULT_SETTINGS, MIRO_SESSION_COOKIE } from "@/lib/server/constants"
+import { DEFAULT_SETTINGS } from "@/lib/server/constants"
 import { getFallbackBoards } from "@/lib/server/fallback"
 import { isMiroConfigured, listMiroBoards } from "@/lib/server/miro"
 import { runScan } from "@/lib/server/scanner"
 import {
-  getMiroSession,
   getUserSettings,
   listScanSummaries,
   putScan,
   setUserSettings,
 } from "@/lib/server/storage"
+import { applyUserCookie, getCurrentUser } from "@/lib/server/user"
 
 const checkSettingSchema = z.object({
   enabled: z.boolean(),
@@ -35,21 +35,13 @@ const scanRequestSchema = z.object({
   settings: settingsSchema.optional(),
 })
 
-async function getCurrentUser(request: NextRequest): Promise<{ userId: string; accessToken?: string }> {
-  const sessionId = request.cookies.get(MIRO_SESSION_COOKIE)?.value
-  const session = await getMiroSession(sessionId)
-
-  if (session) {
-    return { userId: session.userId, accessToken: session.accessToken }
-  }
-
-  return { userId: "demo-user" }
-}
-
 export async function GET(request: NextRequest) {
-  const { userId } = await getCurrentUser(request)
+  const currentUser = await getCurrentUser(request)
+  const { userId } = currentUser
   const scans = await listScanSummaries(userId)
-  return NextResponse.json({ scans })
+  const response = NextResponse.json({ scans })
+  applyUserCookie(response, currentUser)
+  return response
 }
 
 export async function POST(request: NextRequest) {
@@ -60,7 +52,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { userId, accessToken } = await getCurrentUser(request)
+  const currentUser = await getCurrentUser(request)
+  const { userId, accessToken } = currentUser
   const currentSettings = await getUserSettings(userId)
   const settings = {
     ...DEFAULT_SETTINGS,
@@ -89,11 +82,14 @@ export async function POST(request: NextRequest) {
   const scanRecord = runScan(userId, boards, settings)
   await putScan(userId, scanRecord.summary.id, scanRecord)
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     source,
     warning,
     scan: scanRecord.summary,
     boards: scanRecord.boards,
     settings,
   })
+
+  applyUserCookie(response, currentUser)
+  return response
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { getScan } from "@/lib/server/storage"
+import { getScanForUser } from "@/lib/server/storage"
+import { applyUserCookie, getCurrentUser } from "@/lib/server/user"
 
 interface RouteContext {
   params: Promise<{
@@ -8,13 +9,16 @@ interface RouteContext {
   }>
 }
 
-export async function GET(_request: NextRequest, context: RouteContext): Promise<NextResponse> {
+export async function GET(request: NextRequest, context: RouteContext): Promise<NextResponse> {
+  const currentUser = await getCurrentUser(request)
   const { id } = await context.params
-  const scan = await getScan(id)
+  const scan = await getScanForUser(currentUser.userId, id)
 
   if (!scan) {
     return NextResponse.json({ error: "Scan not found" }, { status: 404 })
   }
 
-  return NextResponse.json(scan)
+  const response = NextResponse.json(scan)
+  applyUserCookie(response, currentUser)
+  return response
 }

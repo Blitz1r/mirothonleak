@@ -141,7 +141,7 @@ export default function LinkProbePage() {
         <CardContent>
           <div className="flex flex-col gap-4">
             <Textarea
-              placeholder={"Paste Miro board URLs, one per line.\nExample: https://miro.com/app/board/uXjVGBA5C7k=/"}
+              placeholder={"Paste Miro board URLs, one per line.\nExample format: https://miro.com/app/board/<board-id>/"}
               className="min-h-[120px] bg-secondary border-border font-mono text-sm text-foreground placeholder:text-muted-foreground"
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}

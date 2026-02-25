@@ -79,9 +79,14 @@ export async function putScan(userId: string, scanId: string, record: ScanRecord
   }
 }
 
-export async function getScan(scanId: string): Promise<ScanRecord | undefined> {
+export async function getScanForUser(userId: string, scanId: string): Promise<ScanRecord | undefined> {
   const db = getDatabaseClient()
   if (!db) {
+    const ownedIds = scansByUser.get(userId) ?? []
+    if (!ownedIds.includes(scanId)) {
+      return undefined
+    }
+
     return scansById.get(scanId)
   }
 
@@ -89,6 +94,7 @@ export async function getScan(scanId: string): Promise<ScanRecord | undefined> {
     .from("scans")
     .select("summary")
     .eq("id", scanId)
+    .eq("user_id", userId)
     .maybeSingle()
 
   if (summaryError) {
@@ -131,7 +137,7 @@ export async function listScans(userId: string): Promise<ScanRecord[]> {
     return []
   }
 
-  const records = await Promise.all((rows ?? []).map((row) => getScan(String(row.id))))
+  const records = await Promise.all((rows ?? []).map((row) => getScanForUser(userId, String(row.id))))
   return records.filter((value): value is ScanRecord => Boolean(value))
 }
 
@@ -164,6 +170,7 @@ export async function putProbeSession(session: ProbeSession): Promise<void> {
 
   const { error: sessionError } = await db.from("probe_sessions").upsert({
     id: session.id,
+    user_id: session.userId,
     created_at: session.createdAt,
   })
 
@@ -196,16 +203,22 @@ export async function putProbeSession(session: ProbeSession): Promise<void> {
   }
 }
 
-export async function getProbeSession(sessionId: string): Promise<ProbeSession | undefined> {
+export async function getProbeSessionForUser(userId: string, sessionId: string): Promise<ProbeSession | undefined> {
   const db = getDatabaseClient()
   if (!db) {
-    return probesBySession.get(sessionId)
+    const session = probesBySession.get(sessionId)
+    if (!session || session.userId !== userId) {
+      return undefined
+    }
+
+    return session
   }
 
   const { data: sessionRow, error: sessionError } = await db
     .from("probe_sessions")
-    .select("id, created_at")
+    .select("id, user_id, created_at")
     .eq("id", sessionId)
+    .eq("user_id", userId)
     .maybeSingle()
 
   if (sessionError) {
@@ -230,6 +243,7 @@ export async function getProbeSession(sessionId: string): Promise<ProbeSession |
 
   return {
     id: String(sessionRow.id),
+    userId: String(sessionRow.user_id),
     createdAt: String(sessionRow.created_at),
     results: (resultRows ?? []).map((row) => ({
       id: String(row.id),

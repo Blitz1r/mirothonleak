@@ -24,8 +24,21 @@ create index if not exists scan_boards_scan_idx on scan_boards (scan_id);
 
 create table if not exists probe_sessions (
   id text primary key,
+  user_id text not null,
   created_at timestamptz not null default now()
 );
+
+alter table if exists probe_sessions
+  add column if not exists user_id text;
+
+update probe_sessions
+set user_id = 'legacy-anon'
+where user_id is null;
+
+alter table if exists probe_sessions
+  alter column user_id set not null;
+
+create index if not exists probe_sessions_user_created_idx on probe_sessions (user_id, created_at desc);
 
 create table if not exists probe_results (
   id text primary key,
@@ -75,11 +88,20 @@ create table if not exists probe_rate_limits (
 
 grant usage on schema public to anon, authenticated, service_role;
 
-grant select, insert, update, delete on all tables in schema public to anon, authenticated, service_role;
-grant usage, select on all sequences in schema public to anon, authenticated, service_role;
+revoke all on all tables in schema public from anon, authenticated;
+revoke all on all sequences in schema public from anon, authenticated;
+
+grant select, insert, update, delete on all tables in schema public to service_role;
+grant usage, select on all sequences in schema public to service_role;
 
 alter default privileges in schema public
-  grant select, insert, update, delete on tables to anon, authenticated, service_role;
+  revoke all on tables from anon, authenticated;
 
 alter default privileges in schema public
-  grant usage, select on sequences to anon, authenticated, service_role;
+  revoke all on sequences from anon, authenticated;
+
+alter default privileges in schema public
+  grant select, insert, update, delete on tables to service_role;
+
+alter default privileges in schema public
+  grant usage, select on sequences to service_role;

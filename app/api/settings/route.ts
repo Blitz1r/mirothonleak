@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
-import { DEFAULT_SETTINGS, MIRO_SESSION_COOKIE } from "@/lib/server/constants"
-import { getMiroSession, getUserSettings, setUserSettings } from "@/lib/server/storage"
+import { DEFAULT_SETTINGS } from "@/lib/server/constants"
+import { getUserSettings, setUserSettings } from "@/lib/server/storage"
+import { applyUserCookie, getCurrentUser } from "@/lib/server/user"
 
 const checkSettingSchema = z.object({
   enabled: z.boolean(),
@@ -22,22 +23,19 @@ const settingsSchema = z.object({
   }),
 })
 
-async function getCurrentUser(request: NextRequest): Promise<string> {
-  const sessionId = request.cookies.get(MIRO_SESSION_COOKIE)?.value
-  const session = await getMiroSession(sessionId)
-  return session?.userId ?? "demo-user"
-}
-
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const userId = await getCurrentUser(request)
-  const settings = await getUserSettings(userId)
+  const currentUser = await getCurrentUser(request)
+  const settings = await getUserSettings(currentUser.userId)
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     settings: {
       ...DEFAULT_SETTINGS,
       ...settings,
     },
   })
+
+  applyUserCookie(response, currentUser)
+  return response
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -48,13 +46,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const userId = await getCurrentUser(request)
+  const currentUser = await getCurrentUser(request)
   const merged = {
     ...DEFAULT_SETTINGS,
     ...parsed.data,
   }
 
-  await setUserSettings(userId, merged)
+  await setUserSettings(currentUser.userId, merged)
 
-  return NextResponse.json({ settings: merged })
+  const response = NextResponse.json({ settings: merged })
+  applyUserCookie(response, currentUser)
+  return response
 }

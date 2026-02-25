@@ -21,8 +21,23 @@ export function createId(prefix: string): string {
 }
 
 export function parseMiroBoardId(url: string): string | null {
-  const match = url.match(/miro\.com\/app\/board\/([a-zA-Z0-9_=]+)/)
-  return match ? match[1] : null
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.toLowerCase()
+
+    if (host !== "miro.com" && host !== "www.miro.com") {
+      return null
+    }
+
+    if (parsed.protocol !== "https:") {
+      return null
+    }
+
+    const match = parsed.pathname.match(/^\/app\/board\/([a-zA-Z0-9_=]+)\/?$/)
+    return match ? match[1] : null
+  } catch {
+    return null
+  }
 }
 
 export function classifyProbeStatus(httpCode: number, redirectedTo?: string): ProbeStatus {

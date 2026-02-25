@@ -64,6 +64,7 @@ export interface ProbeResult {
 
 export interface ProbeSession {
   id: string
+  userId: string
   createdAt: string
   results: ProbeResult[]
 }

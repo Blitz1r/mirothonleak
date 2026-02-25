@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
 import { probeUrls } from "@/lib/server/probe"
-import { getProbeSession, isProbeRateLimited, putProbeSession } from "@/lib/server/storage"
+import { getProbeSessionForUser, isProbeRateLimited, putProbeSession } from "@/lib/server/storage"
+import { applyUserCookie, getCurrentUser } from "@/lib/server/user"
 
 const probeRequestSchema = z.object({
   urls: z.array(z.string().url()).min(1).max(50).optional(),
@@ -26,6 +27,7 @@ function getClientIp(request: NextRequest): string {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const currentUser = await getCurrentUser(request)
   const ip = getClientIp(request)
   if (await isProbeRateLimited(ip)) {
     return NextResponse.json(
@@ -54,13 +56,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const { sessionId, results } = await probeUrls(urls)
   const session = {
     id: sessionId,
+    userId: currentUser.userId,
     createdAt: new Date().toISOString(),
     results,
   }
 
   await putProbeSession(session)
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     sessionId,
     summary: {
       viewable: results.filter((item) => item.status === "viewable").length,
@@ -70,18 +73,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     },
     results,
   })
+
+  applyUserCookie(response, currentUser)
+  return response
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const currentUser = await getCurrentUser(request)
   const sessionId = request.nextUrl.searchParams.get("sessionId")
   if (!sessionId) {
     return NextResponse.json({ error: "sessionId is required" }, { status: 400 })
   }
 
-  const session = await getProbeSession(sessionId)
+  const session = await getProbeSessionForUser(currentUser.userId, sessionId)
   if (!session) {
     return NextResponse.json({ error: "Probe session not found" }, { status: 404 })
   }
 
-  return NextResponse.json(session)
+  const response = NextResponse.json(session)
+  applyUserCookie(response, currentUser)
+  return response
 }

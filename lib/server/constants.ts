@@ -22,5 +22,6 @@ export const DEFAULT_SETTINGS: SettingsConfig = {
 }
 
 export const MIRO_SESSION_COOKIE = "miro_session_id"
+export const ANON_SESSION_COOKIE = "anon_session_id"
 export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000
 export const PROBE_RATE_LIMIT_PER_MIN = 100
