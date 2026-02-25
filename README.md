@@ -1,5 +1,20 @@
 # MiroLeak
 
+## Background (For General Viewers)
+
+MiroLeak (Miro Security Posture Analyzer) is a lightweight security visibility tool for Miro boards.
+
+It was built to answer a simple question: **“Are our collaboration boards accidentally overexposed?”**
+
+Many teams share Miro links for speed, but over time those links can stay public, editing access can be too broad, and old boards can continue to contain sensitive project information.
+
+This app helps by:
+
+- scanning accessible boards and highlighting common risk patterns,
+- probing pasted board URLs to see if they appear publicly viewable, protected, or unreachable,
+- presenting findings in a simple dashboard with practical remediation guidance,
+- allowing CSV export for reporting and follow-up.
+
 # Usage through https://mirothonleak.vercel.app/
 
 To use the scanner, go to:
